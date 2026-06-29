@@ -10,6 +10,10 @@ enum DefaultsKey {
     /// Set once we've offered to become the default Markdown handler, so the
     /// first-launch prompt only ever appears once.
     static let didPromptDefaultHandler = "DidPromptDefaultHandler"
+
+    /// The page-zoom factor applied to the rendered document (1.0 == 100%).
+    /// Persisted so the chosen reading size carries across windows and launches.
+    static let pageZoom = "PageZoom"
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

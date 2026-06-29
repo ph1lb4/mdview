@@ -35,6 +35,14 @@ struct DocumentView: View {
         WebView(html: html, holder: holder)
             .frame(minWidth: 480, minHeight: 600)
             .focusedSceneValue(\.webViewHolder, holder)
+            // Browser-style un-shifted ⌘= as an alias for Zoom In. The visible
+            // View-menu item advertises the HIG-conventional ⌘+ (i.e. ⌘⇧=);
+            // this hidden button adds ⌘= without a duplicate menu entry.
+            .background {
+                Button("Zoom In", action: holder.zoomIn)
+                    .keyboardShortcut("=", modifiers: .command)
+                    .hidden()
+            }
             .onAppear {
                 holder.html = html
                 if let name = fileURL?.deletingPathExtension().lastPathComponent {
@@ -47,8 +55,8 @@ struct DocumentView: View {
     }
 }
 
-/// Print and "Save as PDF" entries in the File menu, acting on the frontmost
-/// document window.
+/// File-menu Print / "Save as PDF" and View-menu Zoom entries, all acting on
+/// the frontmost document window via the focused web-view holder.
 struct DocumentCommands: Commands {
     @FocusedValue(\.webViewHolder) private var holder
 
@@ -61,6 +69,23 @@ struct DocumentCommands: Commands {
             Button("Save as PDF…") { holder?.exportPDF() }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
                 .disabled(holder?.hasContent != true)
+        }
+
+        // Zoom lands in the View menu (placed after the system's toolbar items).
+        CommandGroup(after: .toolbar) {
+            Button("Zoom In") { holder?.zoomIn() }
+                .keyboardShortcut("+", modifiers: .command)
+                .disabled(holder?.hasContent != true)
+
+            Button("Zoom Out") { holder?.zoomOut() }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(holder?.hasContent != true)
+
+            Button("Actual Size") { holder?.resetZoom() }
+                .keyboardShortcut("0", modifiers: .command)
+                .disabled(holder?.hasContent != true)
+
+            Divider()
         }
     }
 }

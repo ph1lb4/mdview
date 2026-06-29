@@ -18,6 +18,57 @@ final class WebViewHolder: ObservableObject {
 
     var hasContent: Bool { webView != nil }
 
+    /// Token for the UserDefaults observer that keeps this window's zoom in sync
+    /// with the shared factor (see `init`).
+    private var zoomSyncObserver: NSObjectProtocol?
+
+    init() {
+        // The zoom factor lives in UserDefaults, so a change made in one window
+        // must be re-applied to every other open window — not only to windows
+        // opened afterwards. Re-apply the stored zoom whenever defaults change
+        // (idempotent and cheap; `applyStoredZoom` no-ops while detached).
+        zoomSyncObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.applyStoredZoom()
+        }
+    }
+
+    deinit {
+        if let zoomSyncObserver { NotificationCenter.default.removeObserver(zoomSyncObserver) }
+    }
+
+    // Page-zoom limits and step for the View-menu ⌘+/⌘-/⌘0 commands. `pageZoom`
+    // is a native `WKWebView` property (no JavaScript), so zooming leaves the
+    // locked-down rendering surface untouched.
+    private static let minZoom: CGFloat = 0.5
+    private static let maxZoom: CGFloat = 3.0
+    private static let zoomStep: CGFloat = 0.1
+
+    /// The page-zoom factor (1.0 == 100%), persisted in `UserDefaults` so it is
+    /// shared across every document window and remembered across launches.
+    var pageZoom: CGFloat {
+        get {
+            let stored = UserDefaults.standard.double(forKey: DefaultsKey.pageZoom)
+            return stored == 0 ? 1.0 : CGFloat(stored)
+        }
+        set {
+            let bounded = min(max(newValue, Self.minZoom), Self.maxZoom)
+            let clamped = (bounded * 10).rounded() / 10 // keep clean 0.1 steps
+            UserDefaults.standard.set(Double(clamped), forKey: DefaultsKey.pageZoom)
+            webView?.pageZoom = clamped
+        }
+    }
+
+    /// Apply the persisted zoom to the web view. Called once the view is attached
+    /// (so each new window opens at the reader's chosen size) and again whenever
+    /// the shared factor changes (so already-open windows stay in sync).
+    func applyStoredZoom() { webView?.pageZoom = pageZoom }
+
+    func zoomIn() { pageZoom += Self.zoomStep }
+    func zoomOut() { pageZoom -= Self.zoomStep }
+    func resetZoom() { pageZoom = 1.0 }
+
     /// Print the rendered document through the standard print panel. Uses the
     /// web view's own paginating print operation, so it honours the `@media
     /// print` styles in `MarkdownPage`.

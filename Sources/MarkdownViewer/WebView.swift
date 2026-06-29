@@ -18,6 +18,8 @@ struct WebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
         holder.webView = webView
+        // pageZoom survives loadHTMLString, so apply the persisted zoom once here.
+        holder.applyStoredZoom()
         return webView
     }
 
