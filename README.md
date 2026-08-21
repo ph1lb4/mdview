@@ -29,6 +29,7 @@ Open the app's Settings (**⌘,**) and click **"Use Markdown Viewer for Markdown
 - 📄 **Double-click to read** — opens `.md`, `.markdown`, `.mdown`, `.mkdn`, and `.mkd` files
 - 🎨 **GitHub-style rendering** — clean typography, code blocks, tables, the works
 - 🌗 **Light & dark mode** — follows your system appearance automatically
+- 🔎 **Find in page** — **⌘F** searches the rendered document; **⌘G** / **⇧⌘G** step through matches
 - 👀 **Quick Look preview** — press space on a Markdown file in Finder
 - 🔗 **Links open in your browser** — no surprise in-app navigation
 - 🪶 **Tiny & native** — pure SwiftUI + WebKit, no Electron, no telemetry, no accounts
