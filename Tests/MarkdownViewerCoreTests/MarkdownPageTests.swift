@@ -80,3 +80,44 @@ import Testing
     let html = try MarkdownPage.html(contentsOf: url)
     #expect(html.contains("Caf"))
 }
+
+// Files written for Slack or by AI tools put one item per line without blank
+// lines in between. Strict Markdown joins those into one paragraph, so the
+// viewer keeps every line break instead.
+
+@Test func keepsSingleLineBreaksInParagraphs() {
+    let html = MarkdownPage.html(from: "first line\nsecond line")
+    #expect(html.contains("first line<br>second line"))
+}
+
+@Test func leavesBlockquotesAlone() {
+    // Ink garbles hard breaks inside quotes ("first<br>&gt; second"), so
+    // quoted lines are not touched.
+    let html = MarkdownPage.html(from: "> first\n> second")
+    #expect(html.contains("<blockquote><p>first second</p></blockquote>"))
+}
+
+@Test func rendersBulletCharacterLinesAsList() {
+    let html = MarkdownPage.html(from: "*Status*\n• one\n• two")
+    #expect(html.contains("<p><em>Status</em></p>"))
+    #expect(html.contains("<ul><li>one</li><li>two</li></ul>"))
+}
+
+@Test func listItemsDoNotGetStrayBreaks() {
+    let html = MarkdownPage.html(from: "- one\n- two\n\n1. three\n2. four")
+    #expect(html.contains("<ul><li>one</li><li>two</li></ul>"))
+    #expect(html.contains("<ol><li>three</li><li>four</li></ol>"))
+}
+
+@Test func leavesCodeBlocksAndTablesUntouched() {
+    let html = MarkdownPage.html(from: "```\n• a\nb\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |")
+    #expect(html.contains("• a\nb"))
+    #expect(!html.contains("<br>"))
+    #expect(html.contains("<td>1</td><td>2</td>"))
+}
+
+@Test func headingFollowedByTextStaysClean() {
+    let html = MarkdownPage.html(from: "# Title\ntext")
+    #expect(html.contains("<h1>Title</h1>"))
+    #expect(!html.contains("<br>"))
+}

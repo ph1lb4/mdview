@@ -10,7 +10,7 @@ public enum MarkdownPage {
     }
 
     public static func html(from markdown: String, allowRemoteImages: Bool = false) -> String {
-        let body = MarkdownParser().html(from: markdown)
+        let body = MarkdownParser().html(from: keepingLineBreaks(markdown))
         return """
         <!DOCTYPE html>
         <html>
@@ -28,6 +28,76 @@ public enum MarkdownPage {
         </body>
         </html>
         """
+    }
+
+    /// Markdown written for Slack or by AI tools puts one item per line with no
+    /// blank lines and often uses `•` as the bullet. Strict Markdown joins such
+    /// lines into one long paragraph. This pre-pass turns `•` lines into list
+    /// items and every line break inside text into a hard break (two trailing
+    /// spaces). Code blocks, tables, quotes, headings and list boundaries stay
+    /// as is.
+    static func keepingLineBreaks(_ markdown: String) -> String {
+        var lines = markdown.components(separatedBy: "\n")
+        var inFence = false
+
+        for i in lines.indices {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                inFence.toggle()
+                continue
+            }
+            if inFence { continue }
+
+            if let range = lines[i].range(of: #"^\s*•\s*"#, options: .regularExpression) {
+                let indent = lines[i][range].prefix { $0 == " " || $0 == "\t" }
+                lines[i].replaceSubrange(range, with: indent + "- ")
+            }
+        }
+
+        inFence = false
+        for i in lines.indices.dropLast() {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                inFence.toggle()
+                continue
+            }
+            if inFence { continue }
+
+            let current = lineContent(lines[i])
+            let next = lineContent(lines[i + 1])
+            // Ink garbles hard breaks inside quotes, so leave those alone.
+            guard !current.quoted, !next.quoted,
+                  !current.text.isEmpty, !next.text.isEmpty,
+                  !startsBlock(current.text, asCurrent: true),
+                  !startsBlock(next.text, asCurrent: false),
+                  !lines[i].hasSuffix("  "), !lines[i].hasSuffix("\\") else { continue }
+            lines[i] += "  "
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// A line's text with any blockquote marker removed.
+    private static func lineContent(_ line: String) -> (quoted: Bool, text: String) {
+        var text = line.trimmingCharacters(in: .whitespaces)
+        let quoted = text.hasPrefix(">")
+        if quoted {
+            text = String(text.dropFirst()).trimmingCharacters(in: .whitespaces)
+        }
+        return (quoted, text)
+    }
+
+    /// Lines that start their own block, so no hard break goes before them.
+    /// As the current line, a list item may still break before lazy
+    /// continuation text, but headings, table rows and rules never do.
+    private static func startsBlock(_ text: String, asCurrent: Bool) -> Bool {
+        if text.hasPrefix("#") || text.hasPrefix("|") || text.hasPrefix("```") || text.hasPrefix("~~~") {
+            return true
+        }
+        if text.range(of: #"^([-*_])( *\1){2,}$"#, options: .regularExpression) != nil {
+            return true
+        }
+        if asCurrent { return false }
+        return text.range(of: #"^([-*+]|\d+[.)])\s"#, options: .regularExpression) != nil
     }
 
     /// Locks the rendered page down: untrusted `.md` files can contain raw HTML

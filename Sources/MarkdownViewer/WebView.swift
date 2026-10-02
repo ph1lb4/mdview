@@ -14,7 +14,7 @@ struct WebView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
 
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = MarkdownWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
         holder.webView = webView
